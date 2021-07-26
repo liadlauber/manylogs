@@ -3,17 +3,18 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-	"github.com/TwinProduction/go-color"
+	"gopkg.in/gookit/color.v1"
 	"io"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"math/rand"
 	"path/filepath"
+	"time"
 )
 
-func GetPodLogs(namespace string, podName string, clientset *kubernetes.Clientset) {
+func getPodLogs(namespace string, podName string, clientset *kubernetes.Clientset, podColor color.Color256) {
 	count := int64(100)
 	podLogOptions := corev1.PodLogOptions{
 		Follow:    true,
@@ -49,7 +50,7 @@ func GetPodLogs(namespace string, podName string, clientset *kubernetes.Clientse
 			panic(err.Error())
 		}
 		message := string(buf[:numBytes])
-		fmt.Print(color.Ize(color.Blue, message))
+		podColor.Println(podName + ":\n" + message)
 	}
 	panic(err.Error())
 }
@@ -70,19 +71,30 @@ func getK8sClient() (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(config)
-
 }
 
+/*func getRandomColor() string {
+	rand.Seed(time.Now().UnixNano())
+	colors := []string{
+		"\033[31m","\033[32m","\033[33m","\033[34m","\033[35m","\033[36m","\033[37m","\033[97m",
+	}
+	return colors[rand.Intn(len(colors))]
+}*/
+
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	pods := []string{
 		"app", "app2", "app3", "app4",
 	}
 	clientset, err := getK8sClient()
 	if err != nil {
-
+		panic(err.Error())
 	}
+	//println(getRandomColor())
+	//println(rand.Intn(100))
 	for _, pod := range pods {
-		go GetPodLogs("default", pod, clientset)
+		podColor := color.C256(uint8(rand.Intn(256)))
+		go getPodLogs("default", pod, clientset, podColor)
 	}
 	for {
 	}
