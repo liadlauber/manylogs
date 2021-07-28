@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/util/homedir"
 	"math/rand"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -76,43 +77,8 @@ func getK8sClient() (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(config)
 }
 
-//func getClient() (typev1.CoreV1Interface, error){
-//	var kubeconfig *string
-//	if home := homedir.HomeDir(); home != "" {
-//		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-//	} else {
-//		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-//	}
-//	flag.Parse()
-//	//kubeconfig := filepath.Clean(configLocation)
-//	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	clientset, err := kubernetes.NewForConfig(config)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return clientset.CoreV1(), nil
-//}
-
-//func getServiceForDeployment(deployment string, namespace string, k8sClient typev1.CoreV1Interface) (*corev1.Service, error){
-//	listOptions := metav1.ListOptions{}
-//	svcs, err := k8sClient.Services(namespace).List(context.TODO(), listOptions)
-//	if err != nil{
-//		log.Fatal(err)
-//	}
-//	for _, svc:=range svcs.Items{
-//		if strings.Contains(svc.Name, deployment){
-//			fmt.Fprintf(os.Stdout, "service name: %v\n", svc.Name)
-//			return &svc, nil
-//		}
-//	}
-//	return nil, errors.New("cannot find service for deployment")
-//}
-
 func getLabeledPods(label string, namespace string, k8sClient typev1.CoreV1Interface) (*corev1.PodList, error) {
-	podsLabel := map[string]string{"app": label}
+	podsLabel := map[string]string{strings.Split(label, "=")[0]: strings.Split(label, "=")[1]}
 	set := labels.Set(podsLabel)
 	listOptions := metav1.ListOptions{LabelSelector: set.AsSelector().String()}
 	pods, err := k8sClient.Pods(namespace).List(context.TODO(), listOptions)
@@ -121,30 +87,26 @@ func getLabeledPods(label string, namespace string, k8sClient typev1.CoreV1Inter
 
 func main() {
 
+	namespace := "openshift-etcd"
+
+	label := "k8s-app=etcd-quorum-guard"
+
 	rand.Seed(time.Now().UnixNano())
 	//pods := []string{
-	//	"app", "app2", "app3", "app4",
-	//}
+
 	clientset, err := getK8sClient()
 	if err != nil {
 		panic(err.Error())
 	}
 
-	//service, err := getServiceForDeployment("business-automation-operator", "edentest", clientset.CoreV1())
-	//if err != nil{
-	//	panic(err.Error())
-	//}
-
-	pods, err := getLabeledPods("laber", "labertest", clientset.CoreV1())
+	pods, err := getLabeledPods(label, namespace, clientset.CoreV1())
 	if err != nil {
 		panic(err.Error())
 	}
 
-	//fmt.Println(service.Spec.Selector)
-
 	for _, pod := range pods.Items {
 		podColor := color.C256(uint8(rand.Intn(256)))
-		go getPodLogs("labertest", pod.Name, clientset, podColor)
+		go getPodLogs(namespace, pod.Name, clientset, podColor)
 	}
 
 	for {
