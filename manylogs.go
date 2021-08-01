@@ -18,11 +18,12 @@ import (
 	"time"
 )
 
-func getPodLogs(namespace string, podName string, clientset *kubernetes.Clientset, podColor color.Color256, ch chan string) {
+func getPodLogs(namespace string, podName string, containerName string, clientset *kubernetes.Clientset, podColor color.Color256, ch chan string) {
 	count := int64(100)
 	podLogOptions := corev1.PodLogOptions{
 		Follow:    true,
 		TailLines: &count,
+		Container: containerName,
 	}
 
 	podLogRequest := clientset.CoreV1().
@@ -43,7 +44,7 @@ func getPodLogs(namespace string, podName string, clientset *kubernetes.Clientse
 	}()
 
 	for {
-		buf := make([]byte, 1000000)
+		buf := make([]byte, 2000)
 		numBytes, err := stream.Read(buf)
 		if numBytes == 0 {
 			continue
@@ -55,7 +56,7 @@ func getPodLogs(namespace string, podName string, clientset *kubernetes.Clientse
 			panic(err.Error())
 		}
 		message := string(buf[:numBytes])
-		podColor.Println(podName + ":\n" + message)
+		podColor.Printf(podName + ":\t" + message)
 	}
 	panic(err.Error())
 }
@@ -87,11 +88,17 @@ func getLabeledPods(label string, namespace string, k8sClient typev1.CoreV1Inter
 }
 
 func main() {
-
 	//namespace := "openshift-etcd"
-	namespace := "labertest"
+	//namespace := "sns-system"
 	//label := "k8s-app=etcd-quorum-guard"
-	label := "app=laber"
+	//label := "control-plane=controller-manager"
+	//namespace := "labertest"
+	//label := "app=laber"
+	//container := ""
+
+	namespace := flag.String("namespace", "labertest", "a namespace to get logs from")
+	label := flag.String("label", "app=laber", "a label matches the pods to get logs from")
+	container := flag.String("container", "", "a container to get logs from")
 
 	ch := make(chan string)
 
@@ -102,14 +109,14 @@ func main() {
 		panic(err.Error())
 	}
 
-	pods, err := getLabeledPods(label, namespace, clientset.CoreV1())
+	pods, err := getLabeledPods(*label, *namespace, clientset.CoreV1())
 	if err != nil {
 		panic(err.Error())
 	}
 
 	for _, pod := range pods.Items {
 		podColor := color.C256(uint8(rand.Intn(256)))
-		go getPodLogs(namespace, pod.Name, clientset, podColor, ch)
+		go getPodLogs(*namespace, pod.Name, *container, clientset, podColor, ch)
 	}
 	println(<-ch)
 }
