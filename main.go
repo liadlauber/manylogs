@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-func getPodLogs(namespace string, podName string, clientset *kubernetes.Clientset, podColor color.Color256) {
+func getPodLogs(namespace string, podName string, clientset *kubernetes.Clientset, podColor color.Color256, ch chan string) {
 	count := int64(100)
 	podLogOptions := corev1.PodLogOptions{
 		Follow:    true,
@@ -39,10 +39,11 @@ func getPodLogs(namespace string, podName string, clientset *kubernetes.Clientse
 			println("error in closing stream")
 			panic(err.Error())
 		}
+		ch <- "Done"
 	}()
 
 	for {
-		buf := make([]byte, 2000)
+		buf := make([]byte, 1000000)
 		numBytes, err := stream.Read(buf)
 		if numBytes == 0 {
 			continue
@@ -54,7 +55,7 @@ func getPodLogs(namespace string, podName string, clientset *kubernetes.Clientse
 			panic(err.Error())
 		}
 		message := string(buf[:numBytes])
-		podColor.Println(podName + ": \t" + message)
+		podColor.Println(podName + ":\n" + message)
 	}
 	panic(err.Error())
 }
@@ -87,12 +88,14 @@ func getLabeledPods(label string, namespace string, k8sClient typev1.CoreV1Inter
 
 func main() {
 
-	namespace := "openshift-etcd"
+	//namespace := "openshift-etcd"
+	namespace := "labertest"
+	//label := "k8s-app=etcd-quorum-guard"
+	label := "app=laber"
 
-	label := "k8s-app=etcd-quorum-guard"
+	ch := make(chan string)
 
 	rand.Seed(time.Now().UnixNano())
-	//pods := []string{
 
 	clientset, err := getK8sClient()
 	if err != nil {
@@ -106,9 +109,7 @@ func main() {
 
 	for _, pod := range pods.Items {
 		podColor := color.C256(uint8(rand.Intn(256)))
-		go getPodLogs(namespace, pod.Name, clientset, podColor)
+		go getPodLogs(namespace, pod.Name, clientset, podColor, ch)
 	}
-
-	for {
-	}
+	println(<-ch)
 }
