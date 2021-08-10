@@ -3,7 +3,6 @@ package cmd
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"github.com/spf13/cobra"
 	"gopkg.in/gookit/color.v1"
@@ -14,10 +13,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	typev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -43,6 +40,16 @@ Example:
 			panic(err.Error())
 		}
 
+		if namespace == "" {
+			fmt.Println("you must enter namespace flag")
+			os.Exit(1)
+		}
+
+		if label == "" {
+			fmt.Println("you must enter label flag")
+			os.Exit(1)
+		}
+
 		pods, err := getLabeledPods(label, namespace, clientset.CoreV1())
 		if err != nil {
 			panic(err.Error())
@@ -64,10 +71,10 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&namespace, "namespace", "labertest", "a namespace to get logs from")
-	rootCmd.PersistentFlags().StringVar(&label, "label", "app=laber", "a label matches the pods to get logs from")
+	rootCmd.PersistentFlags().StringVar(&namespace, "namespace", "", "a namespace to get logs from")
+	rootCmd.PersistentFlags().StringVar(&label, "label", "", "a label matches the pods to get logs from")
 	rootCmd.PersistentFlags().StringVar(&container, "container", "", "(optional) a container to get logs from")
-	rootCmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", "", "(optional) absolute path to the kubeconfig file)")
+	rootCmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", "/root/.kube/config", "(optional) absolute path to the kubeconfig file)")
 }
 
 func getPodLogs(namespace string, podName string, containerName string, clientset *kubernetes.Clientset, podColor color.Color256, ch chan string) {
@@ -117,12 +124,6 @@ func getPodLogs(namespace string, podName string, containerName string, clientse
 }
 
 func getK8sClient() (*kubernetes.Clientset, error) {
-
-	if home := homedir.HomeDir(); home != "" {
-		kubeconfig = *flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfig = *flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-	}
 
 	// use the current context in kubeconfig
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
